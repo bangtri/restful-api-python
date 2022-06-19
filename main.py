@@ -1,6 +1,12 @@
+import json
+
 import jwt
-from flask import Flask
+import users
+import requests
+from requests.structures import CaseInsensitiveDict
+from flask import Flask, jsonify, request
 from flask_oidc import OpenIDConnect
+from http import HTTPStatus
 
 app = Flask(__name__)
 app.config.update({
@@ -44,5 +50,50 @@ def logout():
     return 'Hi, you have been logged out! <a href="/">Home</a>'
 
 
+@app.route('/find-users', methods=['GET'])
+def find_users():
+    rows = users.find_all_users('SELECT * FROM users')
+    data = []
+    for r in rows:
+        data.append({
+            'id': r[0],
+            'email': r[1],
+            'phone': r[2],
+            'firstName': r[3],
+            'lastName': r[4]
+        })
+    return jsonify({'users': data})
+
+
+@app.route('/access-token', methods=['POST'])
+def get_access_token_admin():
+    token_endpoint = 'https://stg.accounts.cyberid.vn/auth/realms/cyberid/protocol/openid-connect/token'
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    request_body = {
+        'client_id': 'python',
+        'client_secret': 'GcVB4c2hvyom7fubilZAO0GOetXhhOf9',
+        'username': 'manager_user',
+        'password': 'Cyberid@1!2@3#4$5%',
+        'grant_type': 'password'
+    }
+    response = requests.post(token_endpoint, data=request_body, headers=headers)
+    return response.content
+
+
+@app.route('/create-user', methods=['POST'])
+def create_user():
+    access_token = json.loads(get_access_token_admin())['access_token']
+    request_data = request.get_data()
+    headers = CaseInsensitiveDict()
+    headers['Authorization'] = 'Bearer %s' % access_token
+    headers['Content-Type'] = 'application/json'
+    user_endpoint = 'https://stg.accounts.cyberid.vn/auth/admin/realms/cyberid/users'
+    response = requests.post(user_endpoint, data=request_data, headers=headers)
+    if response.status_code != HTTPStatus.CREATED:
+        return json.loads(response.content)
+    else:
+        return response.content
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=1088)
+    app.run(host='127.0.0.1', port=1088)
