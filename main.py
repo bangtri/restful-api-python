@@ -1,3 +1,4 @@
+import jwt
 from flask import Flask
 from flask_oidc import OpenIDConnect
 
@@ -30,7 +31,11 @@ def check_login():
 @app.route('/login')
 @oidc.require_login
 def login():
-    return 'Hello: ' + str(oidc.user_getfield('name')) + ',  You can logout: <a href="/logout">Log out</a>'
+    user_info = oidc.user_getinfo(['sub', 'preferred_username', 'email', 'name'], oidc.get_access_token())
+    jwt_decode = jwt.decode(oidc.get_access_token(), options={"verify_signature": False})
+    print('realm_access', jwt_decode['realm_access'])
+    print('resource_access', jwt_decode['resource_access'])
+    return user_info
 
 
 @app.route('/logout')
@@ -40,4 +45,4 @@ def logout():
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=1088)
+    app.run(host='0.0.0.0', port=1088)
