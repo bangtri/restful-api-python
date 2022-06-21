@@ -67,7 +67,7 @@ def find_users():
 @app.route('/access-token', methods=['POST'])
 def get_access_token():
     request_data = request.get_json()
-    token_endpoint = 'https://stg.accounts.cyberid.vn/auth/realms/python/protocol/openid-connect/token'
+    token_endpoint = 'http://localhost:8080/auth/realms/python/protocol/openid-connect/token'
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     request_body = {
         'client_id': 'python',
