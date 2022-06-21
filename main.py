@@ -1,5 +1,4 @@
 import json
-
 import jwt
 import users
 import requests
@@ -17,7 +16,7 @@ app.config.update({
     'OIDC_ID_TOKEN_COOKIE_SECURE': False,
     'OIDC_REQUIRE_VERIFIED_EMAIL': False,
     'OIDC_USER_INFO_ENABLED': True,
-    'OIDC_OPENID_REALM': 'cyberid',
+    'OIDC_OPENID_REALM': 'python',
     'OIDC_SCOPES': ['openid', 'email', 'profile'],
     'OIDC_INTROSPECTION_AUTH_METHOD': 'client_secret_post',
     'OIDC_TOKEN_TYPE_HINT': 'access_token'
@@ -52,7 +51,7 @@ def logout():
 
 @app.route('/find-users', methods=['GET'])
 def find_users():
-    rows = users.find_all_users('SELECT * FROM users')
+    rows = users.find_all_users()
     data = []
     for r in rows:
         data.append({
@@ -66,33 +65,40 @@ def find_users():
 
 
 @app.route('/access-token', methods=['POST'])
-def get_access_token_admin():
-    token_endpoint = 'https://stg.accounts.cyberid.vn/auth/realms/cyberid/protocol/openid-connect/token'
+def get_access_token():
+    request_data = request.get_json()
+    token_endpoint = 'https://stg.accounts.cyberid.vn/auth/realms/python/protocol/openid-connect/token'
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     request_body = {
         'client_id': 'python',
         'client_secret': 'GcVB4c2hvyom7fubilZAO0GOetXhhOf9',
-        'username': 'manager_user',
-        'password': 'Cyberid@1!2@3#4$5%',
+        'username': request_data['username'],
+        'password': request_data['password'],
         'grant_type': 'password'
     }
     response = requests.post(token_endpoint, data=request_body, headers=headers)
-    return response.content
+    return json.loads(response.content)
 
 
 @app.route('/create-user', methods=['POST'])
 def create_user():
-    access_token = json.loads(get_access_token_admin())['access_token']
     request_data = request.get_data()
     headers = CaseInsensitiveDict()
-    headers['Authorization'] = 'Bearer %s' % access_token
-    headers['Content-Type'] = 'application/json'
-    user_endpoint = 'https://stg.accounts.cyberid.vn/auth/admin/realms/cyberid/users'
+    headers['Authorization'] = request.headers['Authorization']
+    headers['Content-Type'] = request.headers['Content-Type']
+    user_endpoint = 'http://localhost:8080/auth/admin/realms/python/users'
     response = requests.post(user_endpoint, data=request_data, headers=headers)
-    if response.status_code != HTTPStatus.CREATED:
-        return json.loads(response.content)
+    if response.status_code == HTTPStatus.CREATED:
+        params = {
+            'email': json.loads(request_data)['email']
+        }
+        response_user = requests.get(user_endpoint, params=params, headers=headers)
+        users.insert_user(response_user.json()[0]['id'], response_user.json()[0]['email'],
+                          response_user.json()[0]['username'], response_user.json()[0]['firstName'],
+                          response_user.json()[0]['lastName'])
+        return json.loads('{"message": "Success!"}')
     else:
-        return response.content
+        return json.loads(response.content)
 
 
 if __name__ == '__main__':
