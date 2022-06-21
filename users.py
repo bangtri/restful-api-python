@@ -14,7 +14,6 @@ def insert_user(id, email, phone, firstName, lastName):
     cursor = conn.cursor()
     query = 'INSERT INTO users (id, email, phone, firstName, lastName) VALUES (?, ?, ?, ?, ?)'
     data_tuple = (id, email, phone, firstName, lastName)
-    data = cursor.execute(query, data_tuple)
+    cursor.execute(query, data_tuple)
     conn.commit()
     cursor.close()
-    return data
